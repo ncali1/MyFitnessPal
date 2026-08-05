@@ -1,29 +1,61 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import pluginVue from 'eslint-plugin-vue'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
+import tsParser from '@typescript-eslint/parser'
+import vueParser from 'vue-eslint-parser'
 
-export default defineConfig([
-  globalIgnores(['dist']),
+export default [
+  // Ignore build output and dependencies
   {
-    files: ['**/*.{js,jsx}'],
-    extends: [
-      js.configs.recommended,
-      reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
-    ],
+    ignores: ['dist/**', 'node_modules/**', '*.local'],
+  },
+
+  // Vue files
+  ...pluginVue.configs['flat/essential'],
+  {
+    files: ['**/*.vue'],
     languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
+      parser: vueParser,
       parserOptions: {
+        parser: tsParser,
+        extraFileExtensions: ['.vue'],
         ecmaVersion: 'latest',
-        ecmaFeatures: { jsx: true },
         sourceType: 'module',
       },
     },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'vue/multi-word-component-names': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off', // Use TS version instead
     },
   },
-])
+
+  // TypeScript files
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off', // Use TS version instead
+    },
+  },
+
+  // JS/CJS files
+  {
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    rules: {
+      'no-unused-vars': 'warn',
+    },
+  },
+]
