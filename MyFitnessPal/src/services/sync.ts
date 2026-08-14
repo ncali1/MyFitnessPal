@@ -1,0 +1,189 @@
+import { watch, type Ref } from 'vue'
+import { storageService } from './storage'
+import type { Exercise, Routine, WorkoutSession } from '../stores/types'
+
+const DEBOUNCE_DELAY = 1000 // 1 second debounce
+
+/**
+ * Configuration options for sync watcher functions.
+ */
+interface SyncOptions {
+  /** How long to wait (ms) after the last change before persisting. Defaults to 1000 ms. */
+  debounceDelay?: number
+  /** Optional callback invoked when a persist operation fails after all retries. */
+  onError?: (error: Error) => void
+}
+
+/**
+ * Creates a debounced sync function that persists changes to storage.
+ * Each call resets the timer; the persist function only runs once the timer expires.
+ *
+ * @param persistFn - Async function that writes the data to storage
+ * @param delay - Debounce delay in milliseconds (default: 1000)
+ * @returns An async function that accepts the data to persist
+ */
+function createDebouncedSync<T>(
+  persistFn: (data: T) => Promise<void>,
+  delay: number = DEBOUNCE_DELAY
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  let lastError: Error | null = null
+
+  return async (data: T) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      timeoutId = setTimeout(async () => {
+        try {
+          await persistFn(data)
+          lastError = null
+          resolve()
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err))
+          reject(lastError)
+        }
+      }, delay)
+    })
+  }
+}
+
+/**
+ * Sets up a deep watcher on the exercises array and debounces writes to storage.
+ * Each individual exercise is saved separately via `storageService.saveExercise`.
+ *
+ * @param exercisesRef - Reactive ref holding the exercises array from the Pinia store
+ * @param options - Optional debounce delay and error callback
+ * @returns A stop function that removes the watcher when called
+ */
+export function syncExercises(
+  exercisesRef: Ref<Exercise[]>,
+  options: SyncOptions = {}
+) {
+  const { debounceDelay = DEBOUNCE_DELAY, onError } = options
+
+  const debouncedSync = createDebouncedSync(
+    async (exercises: Exercise[]) => {
+      // Save each exercise individually
+      for (const exercise of exercises) {
+        await storageService.saveExercise(exercise)
+      }
+    },
+    debounceDelay
+  )
+
+  return watch(
+    exercisesRef,
+    async (newExercises) => {
+      try {
+        await debouncedSync(newExercises)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        onError?.(error)
+      }
+    },
+    { deep: true }
+  )
+}
+
+/**
+ * Sets up a deep watcher on the routine ref and debounces writes to storage.
+ * No-ops if the routine becomes null (i.e. before any routine is created).
+ *
+ * @param routineRef - Reactive ref holding the current routine (or null)
+ * @param options - Optional debounce delay and error callback
+ * @returns A stop function that removes the watcher when called
+ */
+export function syncRoutine(
+  routineRef: Ref<Routine | null>,
+  options: SyncOptions = {}
+) {
+  const { debounceDelay = DEBOUNCE_DELAY, onError } = options
+
+  const debouncedSync = createDebouncedSync(
+    async (routine: Routine | null) => {
+      if (routine) {
+        await storageService.saveRoutine(routine)
+      }
+    },
+    debounceDelay
+  )
+
+  return watch(
+    routineRef,
+    async (newRoutine) => {
+      try {
+        await debouncedSync(newRoutine)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        onError?.(error)
+      }
+    },
+    { deep: true }
+  )
+}
+
+/**
+ * Sets up a deep watcher on the workout sessions array and debounces writes to storage.
+ * Each session is saved individually via `storageService.saveWorkoutSession`.
+ *
+ * @param sessionsRef - Reactive ref holding the sessions array from the Pinia store
+ * @param options - Optional debounce delay and error callback
+ * @returns A stop function that removes the watcher when called
+ */
+export function syncWorkoutSessions(
+  sessionsRef: Ref<WorkoutSession[]>,
+  options: SyncOptions = {}
+) {
+  const { debounceDelay = DEBOUNCE_DELAY, onError } = options
+
+  const debouncedSync = createDebouncedSync(
+    async (sessions: WorkoutSession[]) => {
+      // Save each session individually
+      for (const session of sessions) {
+        await storageService.saveWorkoutSession(session)
+      }
+    },
+    debounceDelay
+  )
+
+  return watch(
+    sessionsRef,
+    async (newSessions) => {
+      try {
+        await debouncedSync(newSessions)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        onError?.(error)
+      }
+    },
+    { deep: true }
+  )
+}
+
+/**
+ * Starts all three synchronization watchers (exercises, routine, sessions) at once.
+ *
+ * @param exercisesRef - Reactive ref for the exercises array
+ * @param routineRef - Reactive ref for the current routine
+ * @param sessionsRef - Reactive ref for the sessions array
+ * @param options - Optional shared debounce delay and error callback
+ * @returns A single stop function that tears down all three watchers
+ */
+export function initializeSync(
+  exercisesRef: Ref<Exercise[]>,
+  routineRef: Ref<Routine | null>,
+  sessionsRef: Ref<WorkoutSession[]>,
+  options: SyncOptions = {}
+) {
+  const stopExercisesSync = syncExercises(exercisesRef, options)
+  const stopRoutineSync = syncRoutine(routineRef, options)
+  const stopSessionsSync = syncWorkoutSessions(sessionsRef, options)
+
+  return () => {
+    stopExercisesSync()
+    stopRoutineSync()
+    stopSessionsSync()
+  }
+}
