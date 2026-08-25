@@ -1,23 +1,23 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-    <div class="grid grid-cols-7 divide-x divide-gray-200 dark:divide-gray-700 overflow-x-auto">
+  <div class="card overflow-hidden">
+    <div class="grid grid-cols-7 divide-x divide-surface-border overflow-x-auto">
       <div
         v-for="day in DAYS"
         :key="day.key"
-        class="flex flex-col items-center py-3 px-1"
+        class="flex flex-col items-center py-4 px-1"
       >
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2">
+        <span class="text-[10px] font-semibold text-ink-faint uppercase mb-2 tracking-wide">
           {{ day.label }}
         </span>
-        <div class="flex flex-col items-center gap-1">
-          <component
-            :is="'span'"
-            class="text-lg"
+        <div class="flex flex-col items-center gap-1.5">
+          <span
+            class="w-7 h-7 rounded-full flex items-center justify-center text-xs"
+            :class="statusClass(day.key)"
             :title="statusTitle(day.key)"
           >
             {{ statusIcon(day.key) }}
-          </component>
-          <span class="text-xs text-gray-500 dark:text-gray-400">
+          </span>
+          <span class="text-[10px] text-ink-muted">
             {{ breakdown[day.key]?.completed ?? 0 }}/{{ breakdown[day.key]?.assigned ?? 0 }}
           </span>
         </div>
@@ -58,9 +58,21 @@ const props = defineProps<{
 function statusIcon(day: string): string {
   const data = props.breakdown[day]
   if (!data || data.assigned === 0) return '—'
-  if (data.completed === data.assigned) return '✅'
-  if (data.completed > 0) return '🔶'
-  return '❌'
+  if (data.completed === data.assigned) return '✓'
+  if (data.completed > 0) return '·'
+  return '×'
+}
+
+/**
+ * Returns a Tailwind background/text class for the given day's status dot.
+ * @param day - Lowercase day name
+ */
+function statusClass(day: string): string {
+  const data = props.breakdown[day]
+  if (!data || data.assigned === 0) return 'bg-surface-hover text-ink-faint'
+  if (data.completed === data.assigned) return 'bg-lime-500 text-base-900 font-bold'
+  if (data.completed > 0) return 'bg-amber-500/20 text-amber-400 font-bold'
+  return 'bg-red-500/15 text-red-400 font-bold'
 }
 
 /**

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRoutineStore } from '../stores/routine'
 import { useExercisesStore } from '../stores/exercises'
+import { useWorkoutSessionsStore } from '../stores/workoutSessions'
 
 // Mock the storage service
 vi.mock('../services/storage', () => ({
@@ -11,7 +12,8 @@ vi.mock('../services/storage', () => ({
     getAllExercises: vi.fn(async () => []),
     deleteExercise: vi.fn(async () => {}),
     saveRoutine: vi.fn(async () => {}),
-    getRoutine: vi.fn(async () => undefined),
+    getAllRoutines: vi.fn(async () => []),
+    deleteRoutine: vi.fn(async () => {}),
     saveWorkoutSession: vi.fn(async () => {}),
     getWorkoutSession: vi.fn(async () => undefined),
     getWorkoutSessionByDate: vi.fn(async () => undefined),
@@ -172,7 +174,7 @@ describe('RoutineBuilder Component', () => {
     it('should initialize empty routine if none exists', async () => {
       const routineStore = useRoutineStore()
 
-      await routineStore.loadRoutine()
+      await routineStore.loadRoutines()
 
       expect(routineStore.routine).toBeDefined()
       expect(routineStore.routine?.weeklyAssignments).toBeDefined()
@@ -263,7 +265,7 @@ describe('RoutineBuilder Component', () => {
     it('should display all 7 days of the week', async () => {
       const routineStore = useRoutineStore()
 
-      await routineStore.loadRoutine()
+      await routineStore.loadRoutines()
 
       const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
       days.forEach((day) => {
@@ -274,7 +276,7 @@ describe('RoutineBuilder Component', () => {
     it('should show empty day when no exercises assigned', async () => {
       const routineStore = useRoutineStore()
 
-      await routineStore.loadRoutine()
+      await routineStore.loadRoutines()
 
       expect(routineStore.routineForDay('monday')).toHaveLength(0)
     })
@@ -324,6 +326,111 @@ describe('RoutineBuilder Component', () => {
 
       expect(routineStore.routineForDay('monday')).toContain(exercise.id)
       expect(routineStore.routineForDay('wednesday')).toContain(exercise.id)
+    })
+  })
+
+  describe('Multiple routines', () => {
+    it('lazily creates the first routine as "My Routine", marked active', async () => {
+      const routineStore = useRoutineStore()
+      const exercisesStore = useExercisesStore()
+      const exercise = await exercisesStore.createExercise('Bench Press', 3, 10, ['Chest'])
+
+      await routineStore.assignExercise('monday', exercise.id)
+
+      expect(routineStore.routines).toHaveLength(1)
+      expect(routineStore.activeRoutine?.name).toBe('My Routine')
+      expect(routineStore.activeRoutine?.isActive).toBe(true)
+      // `routine` remains a working alias for the active routine
+      expect(routineStore.routine).toBe(routineStore.activeRoutine)
+    })
+
+    it('createRoutine adds a new, initially inactive routine', async () => {
+      const routineStore = useRoutineStore()
+      await routineStore.createRoutine('Push/Pull/Legs')
+
+      expect(routineStore.routines).toHaveLength(1)
+      expect(routineStore.routines[0]!.name).toBe('Push/Pull/Legs')
+      expect(routineStore.routines[0]!.isActive).toBe(false)
+    })
+
+    it('renameRoutine updates the routine name', async () => {
+      const routineStore = useRoutineStore()
+      const created = await routineStore.createRoutine('5x5')
+      await routineStore.renameRoutine(created.id, 'Starting Strength')
+
+      expect(routineStore.routines.find((r) => r.id === created.id)?.name).toBe('Starting Strength')
+    })
+
+    it('setActiveRoutine switches which routine is active and keeps assignments separate', async () => {
+      const routineStore = useRoutineStore()
+      const exercisesStore = useExercisesStore()
+      const benchPress = await exercisesStore.createExercise('Bench Press', 3, 10, ['Chest'])
+      const squat = await exercisesStore.createExercise('Squat', 4, 8, ['Legs'])
+
+      // First routine (auto-created) gets bench press on Monday
+      await routineStore.assignExercise('monday', benchPress.id)
+      const firstRoutineId = routineStore.activeRoutine!.id
+
+      // Second routine gets squat on Monday instead
+      const second = await routineStore.createRoutine('5x5')
+      await routineStore.setActiveRoutine(second.id)
+      await routineStore.assignExercise('monday', squat.id)
+
+      expect(routineStore.activeRoutine?.id).toBe(second.id)
+      expect(routineStore.routineForDay('monday')).toContain(squat.id)
+      expect(routineStore.routineForDay('monday')).not.toContain(benchPress.id)
+
+      // Switching back reveals the first routine's own assignments, untouched
+      await routineStore.setActiveRoutine(firstRoutineId)
+      expect(routineStore.routineForDay('monday')).toContain(benchPress.id)
+      expect(routineStore.routineForDay('monday')).not.toContain(squat.id)
+    })
+
+    it('setActiveRoutine invalidates the workout-sessions caches so stale computed data is not leaked', async () => {
+      const routineStore = useRoutineStore()
+      const sessionsStore = useWorkoutSessionsStore()
+      const invalidateSpy = vi.spyOn(sessionsStore, 'invalidateCache')
+
+      await routineStore.assignExercise('monday', 'ex1')
+      const second = await routineStore.createRoutine('5x5')
+
+      invalidateSpy.mockClear()
+      await routineStore.setActiveRoutine(second.id)
+
+      expect(invalidateSpy).toHaveBeenCalled()
+    })
+
+    it('deleteRoutine refuses to delete the last remaining routine', async () => {
+      const routineStore = useRoutineStore()
+      await routineStore.assignExercise('monday', 'ex1') // lazily creates the only routine
+
+      await expect(routineStore.deleteRoutine(routineStore.activeRoutine!.id)).rejects.toThrow()
+      expect(routineStore.routines).toHaveLength(1)
+    })
+
+    it('deleteRoutine auto-activates another routine when the active one is deleted', async () => {
+      const routineStore = useRoutineStore()
+      await routineStore.assignExercise('monday', 'ex1') // first routine, active
+      const firstId = routineStore.activeRoutine!.id
+      const second = await routineStore.createRoutine('5x5')
+
+      await routineStore.deleteRoutine(firstId)
+
+      expect(routineStore.routines).toHaveLength(1)
+      expect(routineStore.activeRoutine?.id).toBe(second.id)
+      expect(routineStore.activeRoutine?.isActive).toBe(true)
+    })
+
+    it('deleteRoutine leaves the active routine alone when deleting an inactive one', async () => {
+      const routineStore = useRoutineStore()
+      await routineStore.assignExercise('monday', 'ex1') // first routine, active
+      const activeId = routineStore.activeRoutine!.id
+      const second = await routineStore.createRoutine('5x5')
+
+      await routineStore.deleteRoutine(second.id)
+
+      expect(routineStore.routines).toHaveLength(1)
+      expect(routineStore.activeRoutine?.id).toBe(activeId)
     })
   })
 })

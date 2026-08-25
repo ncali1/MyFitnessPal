@@ -11,6 +11,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import {
   Chart,
+  LineController,
   LineElement,
   PointElement,
   LinearScale,
@@ -20,7 +21,7 @@ import {
   Legend,
 } from 'chart.js'
 
-Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend)
 
 interface WeeklyDataPoint {
   weekLabel: string
@@ -34,6 +35,9 @@ const props = defineProps<{
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
+
+const GRID_COLOR = 'rgba(245, 246, 248, 0.06)'
+const TICK_COLOR = '#9a9ea9'
 
 /**
  * Creates a new Chart.js line chart bound to `canvasRef`.
@@ -49,9 +53,14 @@ function buildChart() {
         {
           label: `${props.exerciseName} - Reps`,
           data: props.data.map((d) => d.averageReps),
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          tension: 0.3,
+          borderColor: '#ff5a2b',
+          backgroundColor: 'rgba(255, 90, 43, 0.15)',
+          pointBackgroundColor: '#ff5a2b',
+          pointBorderColor: '#0a0b0f',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 2.5,
+          tension: 0.35,
           fill: true,
         },
       ],
@@ -60,11 +69,28 @@ function buildChart() {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true },
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: '#1c1e28',
+          titleColor: '#f5f6f8',
+          bodyColor: '#f5f6f8',
+          borderColor: '#262835',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+        },
       },
       scales: {
-        y: { beginAtZero: true },
+        y: {
+          beginAtZero: true,
+          grid: { color: GRID_COLOR },
+          ticks: { color: TICK_COLOR },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: TICK_COLOR },
+        },
       },
     },
   })
@@ -109,11 +135,11 @@ watch(
 </script>
 
 <template>
-  <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-    <h3 class="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-200">
-      {{ exerciseName }} — Reps Over Time
+  <div class="card-pad">
+    <h3 class="mb-4 text-sm font-semibold text-ink-muted uppercase tracking-wide">
+      Reps Over Time
     </h3>
-    <div v-if="data.length === 0" class="flex items-center justify-center py-12 text-gray-400 dark:text-gray-500">
+    <div v-if="data.length === 0" class="flex items-center justify-center py-12 text-ink-faint text-sm">
       No data available
     </div>
     <div v-else class="relative h-64">

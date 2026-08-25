@@ -1,27 +1,27 @@
 <template>
-  <div class="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg px-4 py-3 shadow-sm border border-gray-200 dark:border-gray-700">
+  <div class="flex items-center justify-between card-pad !py-3">
     <button
       @click="$emit('prev')"
-      class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300"
+      class="btn-icon"
       aria-label="Previous week"
     >
-      &#8592;
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
     </button>
 
     <div class="text-center">
-      <p class="text-sm font-medium text-gray-900 dark:text-white">
+      <p class="text-sm font-semibold text-ink">
         {{ formatDate(weekStart) }} – {{ formatDate(weekEnd) }}
       </p>
-      <p v-if="isCurrentWeek" class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">This week</p>
+      <p v-if="isCurrentWeek" class="text-xs text-accent-400 font-semibold mt-0.5">This week</p>
     </div>
 
     <button
       @click="$emit('next')"
       :disabled="isCurrentWeek"
-      class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-600 dark:text-gray-300"
+      class="btn-icon disabled:opacity-30 disabled:cursor-not-allowed"
       aria-label="Next week"
     >
-      &#8594;
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
   </div>
 </template>

@@ -1,32 +1,37 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-    <h2 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Weekly Routine</h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="card-pad">
+    <h2 class="text-ink mb-5">Weekly Routine</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       <div
         v-for="day in days"
         :key="day"
         @click="selectDay(day)"
         :class="[
-          'p-4 rounded-lg border-2 cursor-pointer transition-all',
+          'p-4 rounded-xl border cursor-pointer transition-all',
           selectedDay === day
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 hover:border-blue-300'
+            ? 'border-accent-500 bg-accent-500/10'
+            : 'border-surface-border bg-canvas-800 hover:border-ink-faint/50',
         ]"
       >
-        <h3 class="font-semibold text-lg mb-3 text-gray-900 dark:text-white capitalize">
+        <h3 class="font-semibold text-sm mb-3 text-ink capitalize flex items-center justify-between">
           {{ day }}
+          <span
+            v-if="getExercisesForDay(day).length > 0"
+            class="w-2 h-2 rounded-full"
+            :class="selectedDay === day ? 'bg-accent-500' : 'bg-lime-500'"
+          />
         </h3>
-        
-        <div v-if="getExercisesForDay(day).length === 0" class="text-gray-500 dark:text-gray-400 text-sm">
+
+        <div v-if="getExercisesForDay(day).length === 0" class="text-ink-faint text-xs">
           No exercises assigned
         </div>
-        
-        <div v-else class="space-y-2">
+
+        <div v-else class="space-y-1.5">
           <div
             v-for="exerciseId in getExercisesForDay(day)"
             :key="exerciseId"
-            class="bg-white dark:bg-gray-600 p-2 rounded text-sm text-gray-700 dark:text-gray-200 truncate"
+            class="bg-surface-hover px-2.5 py-1.5 rounded-lg text-xs text-ink-muted truncate"
           >
             {{ getExerciseName(exerciseId) }}
           </div>

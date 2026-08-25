@@ -1,16 +1,16 @@
 <template>
-  <div class="grid grid-cols-3 gap-4">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-      <p class="text-sm text-gray-500 dark:text-gray-400">Assigned</p>
-      <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ totalAssigned }}</p>
+  <div class="grid grid-cols-3 gap-3">
+    <div class="stat-tile">
+      <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Assigned</p>
+      <p class="text-3xl font-extrabold text-ink mt-1">{{ totalAssigned }}</p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-      <p class="text-sm text-gray-500 dark:text-gray-400">Completed</p>
-      <p class="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{{ totalCompleted }}</p>
+    <div class="stat-tile">
+      <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Completed</p>
+      <p class="text-3xl font-extrabold text-lime-500 mt-1">{{ totalCompleted }}</p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-4 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-      <p class="text-sm text-gray-500 dark:text-gray-400">Completion</p>
-      <p class="text-3xl font-bold mt-1" :class="completionColor">{{ completionPercentage }}%</p>
+    <div class="stat-tile">
+      <p class="text-xs font-semibold uppercase tracking-wide text-ink-muted">Completion</p>
+      <p class="text-3xl font-extrabold mt-1" :class="completionColor">{{ completionPercentage }}%</p>
     </div>
   </div>
 </template>
@@ -46,8 +46,8 @@ const completionPercentage = computed(() => {
  */
 const completionColor = computed(() => {
   const pct = completionPercentage.value
-  if (pct >= 80) return 'text-green-600 dark:text-green-400'
-  if (pct >= 50) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-red-600 dark:text-red-400'
+  if (pct >= 80) return 'text-lime-500'
+  if (pct >= 50) return 'text-amber-400'
+  return 'text-red-400'
 })
 </script>

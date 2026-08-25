@@ -3,7 +3,7 @@ import { beforeEach, afterEach, vi } from 'vitest'
 // Mock storage service for tests
 const mockStorage: Record<string, any> = {
   exercises: {},
-  routine: null,
+  routines: {},
   workoutSessions: {},
 }
 
@@ -22,10 +22,13 @@ vi.mock('../services/storage', () => ({
       delete mockStorage.exercises[id]
     }),
     saveRoutine: vi.fn(async (routine) => {
-      mockStorage.routine = routine
+      mockStorage.routines[routine.id] = routine
     }),
-    getRoutine: vi.fn(async () => {
-      return mockStorage.routine
+    getAllRoutines: vi.fn(async () => {
+      return Object.values(mockStorage.routines)
+    }),
+    deleteRoutine: vi.fn(async (id) => {
+      delete mockStorage.routines[id]
     }),
     saveWorkoutSession: vi.fn(async (session) => {
       mockStorage.workoutSessions[session.id] = session
@@ -44,7 +47,7 @@ vi.mock('../services/storage', () => ({
     }),
     clearAllData: vi.fn(async () => {
       mockStorage.exercises = {}
-      mockStorage.routine = null
+      mockStorage.routines = {}
       mockStorage.workoutSessions = {}
     }),
   },
@@ -53,7 +56,7 @@ vi.mock('../services/storage', () => ({
 beforeEach(async () => {
   // Clear all data before each test
   mockStorage.exercises = {}
-  mockStorage.routine = null
+  mockStorage.routines = {}
   mockStorage.workoutSessions = {}
 })
 

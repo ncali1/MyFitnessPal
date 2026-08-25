@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { useExercisesStore } from '../stores/exercises'
 import { useRoutineStore } from '../stores/routine'
 import { useWorkoutSessionsStore } from '../stores/workoutSessions'
+import { useBodyWeightStore } from '../stores/bodyWeight'
 import { storageService, StorageQuotaError } from '../services/storage'
 import { initializeSync } from '../services/sync'
 
@@ -20,10 +21,12 @@ export function useAppInitialization() {
   const exercisesStore = useExercisesStore()
   const routineStore = useRoutineStore()
   const sessionsStore = useWorkoutSessionsStore()
+  const bodyWeightStore = useBodyWeightStore()
 
   const { exercises } = storeToRefs(exercisesStore)
-  const { routine } = storeToRefs(routineStore)
+  const { routines } = storeToRefs(routineStore)
   const { sessions } = storeToRefs(sessionsStore)
+  const { logs: bodyWeightLogs } = storeToRefs(bodyWeightStore)
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -55,14 +58,14 @@ export function useAppInitialization() {
         }
       }
 
-      // Load routine — graceful degradation on failure
+      // Load routines — graceful degradation on failure
       try {
-        await routineStore.loadRoutine()
+        await routineStore.loadRoutines()
       } catch (err) {
         if (err instanceof StorageQuotaError) {
           error.value = err.message
         } else {
-          console.error('Failed to load routine, continuing with empty state:', err)
+          console.error('Failed to load routines, continuing with empty state:', err)
         }
       }
 
@@ -77,11 +80,23 @@ export function useAppInitialization() {
         }
       }
 
+      // Load body weight logs — graceful degradation on failure
+      try {
+        await bodyWeightStore.loadLogs()
+      } catch (err) {
+        if (err instanceof StorageQuotaError) {
+          error.value = err.message
+        } else {
+          console.error('Failed to load body weight logs, continuing with empty state:', err)
+        }
+      }
+
       // Initialize synchronization watchers
       initializeSync(
         exercises,
-        routine,
+        routines,
         sessions,
+        bodyWeightLogs,
         {
           onError: (err) => {
             console.error('Sync error:', err)
@@ -108,6 +123,7 @@ export function useAppInitialization() {
       exercisesStore.$reset()
       routineStore.$reset()
       sessionsStore.$reset()
+      bodyWeightStore.$reset()
 
       isInitialized.value = false
     } catch (err) {

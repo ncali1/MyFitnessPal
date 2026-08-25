@@ -1,18 +1,12 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-    <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-      Select Exercises for {{ dayLabel }}
+  <div class="card-pad">
+    <h3 class="text-ink mb-4">
+      Add exercises to <span class="text-accent-400">{{ dayLabel }}</span>
     </h3>
 
-    <div class="mb-4">
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Available Exercises
-      </label>
-      <select
-        v-model="selectedExerciseId"
-        @change="addExercise"
-        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
+    <div class="mb-5">
+      <label class="field-label">Available Exercises</label>
+      <select v-model="selectedExerciseId" @change="addExercise" class="field-input">
         <option value="">-- Select an exercise --</option>
         <option
           v-for="exercise in availableExercises"
@@ -25,25 +19,25 @@
     </div>
 
     <div v-if="selectedExercises.length > 0" class="space-y-2">
-      <h4 class="font-medium text-gray-900 dark:text-white mb-2">Selected Exercises:</h4>
+      <h4 class="field-label !mb-2">Selected Exercises</h4>
       <div
         v-for="exerciseId in selectedExercises"
         :key="exerciseId"
-        class="flex items-center justify-between bg-blue-50 dark:bg-blue-900 p-3 rounded-lg"
+        class="flex items-center justify-between bg-canvas-800 border border-surface-border p-3 rounded-xl"
       >
-        <span class="text-gray-900 dark:text-white">
+        <span class="text-ink text-sm font-medium">
           {{ getExerciseName(exerciseId) }}
         </span>
         <button
           @click="removeExercise(exerciseId)"
-          class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
+          class="text-red-400 hover:text-red-300 text-xs font-semibold"
         >
           Remove
         </button>
       </div>
     </div>
 
-    <div v-else class="text-gray-500 dark:text-gray-400 text-sm">
+    <div v-else class="text-ink-faint text-sm">
       No exercises selected yet
     </div>
   </div>

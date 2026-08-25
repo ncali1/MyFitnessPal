@@ -1,114 +1,103 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+  <div class="modal-overlay" @click.self="$emit('cancel')">
+    <div class="modal-panel">
       <div class="p-6">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        <h2 class="text-ink mb-5">
           {{ exercise ? 'Edit Exercise' : 'Create Exercise' }}
         </h2>
 
         <form @submit.prevent="submitForm" class="space-y-4">
           <!-- Name Field -->
           <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Exercise Name *
-            </label>
+            <label for="name" class="field-label">Exercise Name *</label>
             <input
               id="name"
               v-model="form.name"
               type="text"
               placeholder="e.g., Bench Press"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="field-input"
               @blur="validateField('name')"
             />
-            <p v-if="errors.name" class="text-red-500 text-sm mt-1">{{ errors.name }}</p>
+            <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
           </div>
 
-          <!-- Target Sets Field -->
-          <div>
-            <label for="targetSets" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Target Sets *
-            </label>
-            <input
-              id="targetSets"
-              v-model.number="form.targetSets"
-              type="number"
-              min="1"
-              placeholder="e.g., 3"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @blur="validateField('targetSets')"
-            />
-            <p v-if="errors.targetSets" class="text-red-500 text-sm mt-1">{{ errors.targetSets }}</p>
-          </div>
+          <!-- Target Sets / Reps side by side -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="targetSets" class="field-label">Target Sets *</label>
+              <input
+                id="targetSets"
+                v-model.number="form.targetSets"
+                type="number"
+                min="1"
+                placeholder="3"
+                class="field-input"
+                @blur="validateField('targetSets')"
+              />
+              <p v-if="errors.targetSets" class="field-error">{{ errors.targetSets }}</p>
+            </div>
 
-          <!-- Target Reps Field -->
-          <div>
-            <label for="targetReps" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Target Reps *
-            </label>
-            <input
-              id="targetReps"
-              v-model.number="form.targetReps"
-              type="number"
-              min="1"
-              placeholder="e.g., 10"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @blur="validateField('targetReps')"
-            />
-            <p v-if="errors.targetReps" class="text-red-500 text-sm mt-1">{{ errors.targetReps }}</p>
+            <div>
+              <label for="targetReps" class="field-label">Target Reps *</label>
+              <input
+                id="targetReps"
+                v-model.number="form.targetReps"
+                type="number"
+                min="1"
+                placeholder="10"
+                class="field-input"
+                @blur="validateField('targetReps')"
+              />
+              <p v-if="errors.targetReps" class="field-error">{{ errors.targetReps }}</p>
+            </div>
           </div>
 
           <!-- Muscle Groups Field -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Target Muscle Groups *
-            </label>
-            <div class="space-y-2">
-              <div v-for="group in muscleGroupOptions" :key="group" class="flex items-center">
+            <label class="field-label">Target Muscle Groups *</label>
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="group in muscleGroupOptions"
+                :key="group"
+                :class="[
+                  'px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer transition-colors select-none',
+                  form.targetMuscleGroups.includes(group)
+                    ? 'bg-accent-500/15 border-accent-500 text-accent-400'
+                    : 'bg-canvas-800 border-surface-border text-ink-muted hover:border-ink-faint',
+                ]"
+              >
                 <input
                   :id="`group-${group}`"
                   :value="group"
                   v-model="form.targetMuscleGroups"
                   type="checkbox"
-                  class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  class="sr-only"
                 />
-                <label :for="`group-${group}`" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  {{ group }}
-                </label>
-              </div>
+                {{ group }}
+              </label>
             </div>
-            <p v-if="errors.targetMuscleGroups" class="text-red-500 text-sm mt-1">
+            <p v-if="errors.targetMuscleGroups" class="field-error">
               {{ errors.targetMuscleGroups }}
             </p>
           </div>
 
           <!-- Submit Error Banner -->
-          <div
-            v-if="submitError"
-            class="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg p-3 flex items-center justify-between"
-          >
-            <p class="text-red-800 dark:text-red-200 text-sm">{{ submitError }}</p>
+          <div v-if="submitError" class="alert-error">
+            <p class="text-red-400 text-sm">{{ submitError }}</p>
             <button
               type="button"
               @click="submitError = null"
-              class="text-red-500 hover:text-red-700 ml-2 text-lg leading-none"
+              class="text-red-400 hover:text-red-300 ml-2 text-lg leading-none"
               aria-label="Dismiss error"
             >&times;</button>
           </div>
 
           <!-- Form Actions -->
-          <div class="flex gap-3 pt-4">
-            <button
-              type="button"
-              @click="$emit('cancel')"
-              class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
+          <div class="flex gap-3 pt-2">
+            <button type="button" @click="$emit('cancel')" class="btn-secondary flex-1">
               Cancel
             </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-            >
+            <button type="submit" :disabled="isSubmitting" class="btn-primary flex-1">
               {{ isSubmitting ? 'Saving...' : 'Save' }}
             </button>
           </div>
@@ -260,16 +249,18 @@ const submitForm = async () => {
         name: form.name,
         targetSets: form.targetSets,
         targetReps: form.targetReps,
-        targetMuscleGroups: form.targetMuscleGroups,
+        targetMuscleGroups: [...form.targetMuscleGroups],
         updatedAt: Date.now(),
       })
     } else {
       // Create new exercise
+      // Spread into a plain array — form.targetMuscleGroups is a reactive Proxy
+      // array, which IndexedDB's structured-clone algorithm cannot serialize.
       await exercisesStore.createExercise(
         form.name,
         form.targetSets,
         form.targetReps,
-        form.targetMuscleGroups
+        [...form.targetMuscleGroups]
       )
     }
 

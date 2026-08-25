@@ -11,7 +11,8 @@ vi.mock('../services/storage', () => ({
     getAllExercises: vi.fn(async () => []),
     deleteExercise: vi.fn(async () => {}),
     saveRoutine: vi.fn(async () => {}),
-    getRoutine: vi.fn(async () => undefined),
+    getAllRoutines: vi.fn(async () => []),
+    deleteRoutine: vi.fn(async () => {}),
     saveWorkoutSession: vi.fn(async () => {}),
     getWorkoutSession: vi.fn(async () => undefined),
     getWorkoutSessionByDate: vi.fn(async () => undefined),
@@ -44,7 +45,7 @@ describe('DailyChecklist logic', () => {
 
     it('should return empty list when no exercises assigned to day', async () => {
       const routineStore = useRoutineStore()
-      await routineStore.loadRoutine()
+      await routineStore.loadRoutines()
 
       const ids = routineStore.routineForDay('tuesday')
       expect(ids).toHaveLength(0)

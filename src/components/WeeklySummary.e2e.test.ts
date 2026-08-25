@@ -27,7 +27,8 @@ vi.mock('../services/storage', () => ({
     getAllExercises: vi.fn(async () => []),
     deleteExercise: vi.fn(async () => {}),
     saveRoutine: vi.fn(async () => {}),
-    getRoutine: vi.fn(async () => undefined),
+    getAllRoutines: vi.fn(async () => []),
+    deleteRoutine: vi.fn(async () => {}),
     saveWorkoutSession: vi.fn(async () => {}),
     getWorkoutSession: vi.fn(async () => undefined),
     getWorkoutSessionByDate: vi.fn(async () => undefined),
@@ -307,6 +308,8 @@ describe('E2E: View Weekly Summary (Task 15.4)', () => {
       // Use a fresh routine with no assignments
       const emptyRoutine: Routine = {
         id: 'empty',
+        name: 'Empty',
+        isActive: true,
         weeklyAssignments: {
           monday: [],
           tuesday: [],

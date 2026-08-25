@@ -175,6 +175,28 @@ export function aggregateProgressData(
   }
 }
 
+// ── Exercise History ──────────────────────────────────────────────────────────
+
+/** A single logged instance of an exercise, with the date it was logged. */
+export interface ExerciseHistoryEntry extends ExercisePerformance {
+  date: string
+}
+
+/**
+ * Returns every logged instance of an exercise across all sessions, newest first.
+ * @param exerciseId - ID of the exercise to look up
+ * @param sessions - All workout sessions to search
+ */
+export function getExerciseHistory(
+  exerciseId: string,
+  sessions: WorkoutSession[]
+): ExerciseHistoryEntry[] {
+  return sessions
+    .filter((s) => s.exercises.some((e) => e.exerciseId === exerciseId))
+    .map((s) => ({ ...s.exercises.find((e) => e.exerciseId === exerciseId)!, date: s.date }))
+    .sort((a, b) => b.date.localeCompare(a.date))
+}
+
 // ── 10.3: Daily Checklist ─────────────────────────────────────────────────────
 
 /**

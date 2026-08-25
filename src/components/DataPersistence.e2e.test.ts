@@ -30,11 +30,11 @@ import type { Exercise, Routine, WorkoutSession } from '../stores/types'
 
 const mockDb: {
   exercises: Record<string, Exercise>
-  routine: Routine | null
+  routines: Record<string, Routine>
   workoutSessions: Record<string, WorkoutSession>
 } = {
   exercises: {},
-  routine: null,
+  routines: {},
   workoutSessions: {},
 }
 
@@ -50,15 +50,16 @@ vi.mock('../services/storage', () => ({
       delete mockDb.exercises[id]
     }),
 
-    // Routine
+    // Routines
     saveRoutine: vi.fn(async (routine: Routine) => {
-      mockDb.routine = { ...routine, weeklyAssignments: { ...routine.weeklyAssignments } }
+      mockDb.routines[routine.id] = { ...routine, weeklyAssignments: { ...routine.weeklyAssignments } }
     }),
-    getRoutine: vi.fn(async () =>
-      mockDb.routine
-        ? { ...mockDb.routine, weeklyAssignments: { ...mockDb.routine.weeklyAssignments } }
-        : undefined
+    getAllRoutines: vi.fn(async () =>
+      Object.values(mockDb.routines).map((r) => ({ ...r, weeklyAssignments: { ...r.weeklyAssignments } }))
     ),
+    deleteRoutine: vi.fn(async (id: string) => {
+      delete mockDb.routines[id]
+    }),
 
     // Workout Sessions
     saveWorkoutSession: vi.fn(async (session: WorkoutSession) => {
@@ -86,7 +87,7 @@ vi.mock('../services/storage', () => ({
     }),
     clearAllData: vi.fn(async () => {
       mockDb.exercises = {}
-      mockDb.routine = null
+      mockDb.routines = {}
       mockDb.workoutSessions = {}
     }),
   },
@@ -107,11 +108,16 @@ function freshStores() {
   }
 }
 
+/** The single routine created by these tests' lazy-create-on-assign flow, if any. */
+function firstRoutine(): Routine | undefined {
+  return Object.values(mockDb.routines)[0]
+}
+
 /** Simulate closing and reopening the app: create brand-new stores and load all data from storage. */
 async function simulateAppReload() {
   const { exercisesStore, routineStore, sessionsStore } = freshStores()
   await exercisesStore.loadExercises()
-  await routineStore.loadRoutine()
+  await routineStore.loadRoutines()
   await sessionsStore.loadSessions()
   return { exercisesStore, routineStore, sessionsStore }
 }
@@ -124,7 +130,7 @@ describe('E2E: Data Persistence Across App Reload (Task 15.6)', () => {
   beforeEach(() => {
     // Reset in-memory mock DB before each test
     mockDb.exercises = {}
-    mockDb.routine = null
+    mockDb.routines = {}
     mockDb.workoutSessions = {}
     vi.clearAllMocks()
   })
@@ -192,8 +198,8 @@ describe('E2E: Data Persistence Across App Reload (Task 15.6)', () => {
       const exercise = await exercisesStore.createExercise('Squat', 3, 8, ['Legs'])
       await routineStore.assignExercise('monday', exercise.id)
 
-      expect(mockDb.routine).not.toBeNull()
-      expect(mockDb.routine!.weeklyAssignments.monday).toContain(exercise.id)
+      expect(firstRoutine()).not.toBeUndefined()
+      expect(firstRoutine()!.weeklyAssignments.monday).toContain(exercise.id)
     })
 
     it('persists assignments for all 7 days to storage', async () => {
@@ -215,7 +221,7 @@ describe('E2E: Data Persistence Across App Reload (Task 15.6)', () => {
       }
 
       for (let i = 0; i < days.length; i++) {
-        expect(mockDb.routine!.weeklyAssignments[days[i]!]).toContain(exercises[i]!.id)
+        expect(firstRoutine()!.weeklyAssignments[days[i]!]).toContain(exercises[i]!.id)
       }
     })
   })
@@ -535,7 +541,7 @@ describe('E2E: Data Persistence Across App Reload (Task 15.6)', () => {
     it('empty state remains empty after reload when no data was created', async () => {
       // Ensure no data in mock storage
       expect(Object.keys(mockDb.exercises)).toHaveLength(0)
-      expect(mockDb.routine).toBeNull()
+      expect(Object.keys(mockDb.routines)).toHaveLength(0)
       expect(Object.keys(mockDb.workoutSessions)).toHaveLength(0)
 
       // Reload with empty storage

@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-5">
     <WeekNavigator
       :week-start="weekStart"
       :week-end="weekEnd"

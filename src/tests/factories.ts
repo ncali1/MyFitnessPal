@@ -16,6 +16,8 @@ export function createMockExercise(overrides?: Partial<Exercise>): Exercise {
 export function createMockRoutine(overrides?: Partial<Routine>): Routine {
   return {
     id: crypto.randomUUID(),
+    name: 'My Routine',
+    isActive: true,
     weeklyAssignments: {
       monday: [],
       tuesday: [],

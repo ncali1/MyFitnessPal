@@ -76,7 +76,7 @@ const offsetY = computed(() => startIndex.value * props.itemHeight)
 </script>
 
 <template>
-  <div ref="containerRef" class="overflow-y-auto" style="height: 100%">
+  <div ref="containerRef" class="overflow-y-auto no-scrollbar" style="height: 100%">
     <!-- Spacer that represents the full list height -->
     <div :style="{ height: `${totalHeight}px`, position: 'relative' }">
       <!-- Only the visible slice is rendered -->

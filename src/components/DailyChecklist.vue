@@ -1,22 +1,23 @@
 <template>
-  <div class="space-y-4">
-    <div
-      v-if="error"
-      class="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg p-4 flex items-center justify-between"
-    >
-      <p class="text-red-800 dark:text-red-200">{{ error }}</p>
+  <div class="space-y-5">
+    <div v-if="error" class="alert-error">
+      <p class="text-red-400 text-sm">{{ error }}</p>
       <button
         type="button"
         @click="error = null"
-        class="text-red-500 hover:text-red-700 ml-2 text-lg leading-none"
+        class="text-red-400 hover:text-red-300 ml-2 text-lg leading-none"
         aria-label="Dismiss error"
       >&times;</button>
     </div>
 
+    <PRToast :message="prMessage" @dismissed="prMessage = null" />
+
     <DaySelector :selected-date="selectedDate" @update:selected-date="onDateChange" />
 
-    <div v-if="exercisesForDay.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
-      No exercises scheduled for this day.
+    <div v-if="exercisesForDay.length === 0" class="card-pad text-center py-14">
+      <div class="text-4xl mb-3">🌙</div>
+      <p class="text-ink font-semibold">Rest day</p>
+      <p class="text-ink-muted text-sm mt-1">No exercises scheduled for this day.</p>
     </div>
 
     <ChecklistItems
@@ -53,9 +54,14 @@ import DaySelector from './DaySelector.vue'
 import ChecklistItems from './ChecklistItems.vue'
 import type { ChecklistItem } from './ChecklistItems.vue'
 import PerformanceForm from './PerformanceForm.vue'
+import PRToast from './PRToast.vue'
 import { useRoutineStore } from '../stores/routine'
 import { useExercisesStore } from '../stores/exercises'
 import { useWorkoutSessionsStore } from '../stores/workoutSessions'
+import { useSettingsStore } from '../stores/settings'
+import { useRestTimerStore } from '../stores/restTimer'
+import { detectNewRecords } from '../utils/personalRecords'
+import { formatWeight } from '../utils/units'
 import type { Exercise, ExercisePerformance } from '../stores/types'
 
 const DAY_NAMES: Record<number, string> = {
@@ -91,10 +97,13 @@ function dayOfWeekFromDate(dateStr: string): string {
 const routineStore = useRoutineStore()
 const exercisesStore = useExercisesStore()
 const sessionsStore = useWorkoutSessionsStore()
+const settingsStore = useSettingsStore()
+const restTimer = useRestTimerStore()
 
 const selectedDate = ref(todayString())
 const activeExercise = ref<Exercise | null>(null)
 const error = ref<string | null>(null)
+const prMessage = ref<string | null>(null)
 
 /** IDs of exercises assigned to the selected date's day of week. */
 const exerciseIdsForDay = computed(() => {
@@ -131,6 +140,20 @@ const existingPerformance = computed<ExercisePerformance | null>(() => {
 const checklistItems = computed<ChecklistItem[]>(() => {
   return exercisesForDay.value.map((exercise) => {
     const performance = currentSession.value?.exercises.find((p) => p.exerciseId === exercise.id)
+
+    let isWeightPR = false
+    let isRepsPR = false
+    if (performance?.completed) {
+      const allPerformances = sessionsStore.performanceByExercise(exercise.id)
+      const priorPerformances = allPerformances.filter((p) => p.timestamp !== performance.timestamp)
+      const flags = detectNewRecords(priorPerformances, {
+        weight: performance.weight,
+        actualReps: performance.actualReps,
+      })
+      isWeightPR = flags.isWeightPR
+      isRepsPR = flags.isRepsPR
+    }
+
     return {
       exerciseId: exercise.id,
       exerciseName: exercise.name,
@@ -139,6 +162,8 @@ const checklistItems = computed<ChecklistItem[]>(() => {
       targetMuscleGroups: exercise.targetMuscleGroups,
       completed: performance?.completed ?? false,
       performance,
+      isWeightPR,
+      isRepsPR,
     }
   })
 })
@@ -188,16 +213,39 @@ async function onToggle(exerciseId: string) {
 
 /**
  * Submits performance data for the active exercise and closes the PerformanceForm.
+ * Detects whether this beats a prior personal record (celebratory toast), and starts
+ * the rest timer for the completed set.
  * @param performance - Performance fields (sets, reps, weight, difficulty) without exerciseId/timestamp
  */
 async function onPerformanceSubmit(
   performance: Omit<ExercisePerformance, 'exerciseId' | 'timestamp'>
 ) {
   if (!activeExercise.value) return
+  const exerciseName = activeExercise.value.name
+
   try {
+    // Compute PR status against state *before* this submission is applied.
+    const priorPerformances = sessionsStore.performanceByExercise(activeExercise.value.id)
+    const { isWeightPR, isRepsPR } = detectNewRecords(priorPerformances, {
+      weight: performance.weight,
+      actualReps: performance.actualReps,
+    })
+
     const sessionId = await ensureSession()
     await sessionsStore.logPerformance(sessionId, activeExercise.value.id, performance)
     activeExercise.value = null
+
+    if (isWeightPR && isRepsPR) {
+      prMessage.value = `${exerciseName}: new best weight and reps!`
+    } else if (isWeightPR) {
+      prMessage.value = `${exerciseName}: new heaviest weight — ${formatWeight(performance.weight, settingsStore.weightUnit)}${settingsStore.weightUnit}!`
+    } else if (isRepsPR) {
+      prMessage.value = `${exerciseName}: new best reps — ${performance.actualReps}!`
+    }
+
+    if (performance.completed) {
+      restTimer.start(settingsStore.restDuration)
+    }
   } catch (err) {
     console.error('Failed to submit performance:', err)
     error.value = 'Failed to save workout. Please try again.'
@@ -216,7 +264,7 @@ function onDateChange(date: string) {
 onMounted(async () => {
   try {
     await Promise.all([
-      routineStore.loadRoutine(),
+      routineStore.loadRoutines(),
       exercisesStore.loadExercises(),
       sessionsStore.loadSessions(),
     ])
