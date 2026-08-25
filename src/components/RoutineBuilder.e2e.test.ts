@@ -8,11 +8,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/vue'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/vue'
 import { setActivePinia, createPinia } from 'pinia'
 import RoutineBuilder from './RoutineBuilder.vue'
 import { useExercisesStore } from '../stores/exercises'
 import { useRoutineStore } from '../stores/routine'
+import { useWorkoutSessionsStore } from '../stores/workoutSessions'
+import { getWeekStart } from '../utils/calculations'
 
 // Mock the storage service (same pattern as existing tests)
 vi.mock('../services/storage', () => ({
@@ -22,7 +24,8 @@ vi.mock('../services/storage', () => ({
     getAllExercises: vi.fn(async () => []),
     deleteExercise: vi.fn(async () => {}),
     saveRoutine: vi.fn(async () => {}),
-    getRoutine: vi.fn(async () => undefined),
+    getAllRoutines: vi.fn(async () => []),
+    deleteRoutine: vi.fn(async () => {}),
     saveWorkoutSession: vi.fn(async () => {}),
     getWorkoutSession: vi.fn(async () => undefined),
     getWorkoutSessionByDate: vi.fn(async () => undefined),
@@ -55,7 +58,7 @@ async function renderWithExercises() {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  return { ...result, exercisesStore, routineStore, pushUps, pullUps, squats }
+  return { ...result, pinia, exercisesStore, routineStore, pushUps, pullUps, squats }
 }
 
 /**
@@ -545,4 +548,102 @@ describe('RoutineBuilder – Build Routine E2E Workflow', () => {
       expect(routineStore.routineForDay('monday')).not.toContain(pushUps.id)
     })
   })
+
+  // ── Multiple routines/programs ─────────────────────────────────────────────
+
+  describe('Multiple routines', () => {
+    it('creates a second routine, switches active, keeps assignments separate, and invalidates the weekly-summary cache so the switch is reflected (not stale)', async () => {
+      const { routineStore, pushUps, squats } = await renderWithExercises()
+      const sessionsStore = useWorkoutSessionsStore()
+      const today = todayDayName()
+      const weekStart = getWeekStart(todayDateString())
+
+      // Assign Push-ups to today's day-of-week in the auto-created first routine ("My Routine")
+      await selectDay(today)
+      await selectExerciseFromDropdown('Push-ups')
+      await waitFor(() => expect(routineStore.routineForDay(today)).toContain(pushUps.id))
+      expect(routineStore.activeRoutine?.name).toBe('My Routine')
+
+      // Prime the weekly-summary cache for "My Routine" — 1 exercise assigned this week
+      const summaryBefore = sessionsStore.getCachedWeeklySummary(weekStart, routineStore.routine!)
+      expect(summaryBefore.totalAssignedWorkouts).toBe(1)
+
+      // Create a second routine — the inline form auto-activates it on save
+      await fireEvent.click(screen.getByRole('button', { name: /\+ new routine/i }))
+      await fireEvent.update(screen.getByLabelText(/routine name/i), '5x5')
+      await fireEvent.submit(screen.getByLabelText(/routine name/i).closest('form')!)
+
+      await waitFor(() => {
+        expect(routineStore.activeRoutine?.name).toBe('5x5')
+        expect(routineStore.loading).toBe(false)
+      })
+      // The new routine starts with no assignments — the switch must have invalidated the
+      // cache from "My Routine" above, or this would incorrectly still read totalAssignedWorkouts: 1
+      const summaryAfterSwitch = sessionsStore.getCachedWeeklySummary(weekStart, routineStore.routine!)
+      expect(summaryAfterSwitch.totalAssignedWorkouts).toBe(0)
+
+      // Assign Squats to today under the new active routine. Re-select the day first —
+      // WeeklyGrid's local day selection resets whenever it remounts (the loading v-if/v-else
+      // above toggles during store actions), same as the other tests in this file account for.
+      await selectDay(today)
+      await selectExerciseFromDropdown('Squats')
+      await waitFor(() => expect(routineStore.routineForDay(today)).toContain(squats.id))
+      expect(routineStore.routineForDay(today)).not.toContain(pushUps.id)
+
+      // Switch back to "My Routine" via its pill — Push-ups reappears, Squats doesn't,
+      // and the weekly summary reflects "My Routine" again (not "5x5"'s stale data)
+      await fireEvent.click(screen.getByText('My Routine'))
+      await waitFor(() => {
+        expect(routineStore.activeRoutine?.name).toBe('My Routine')
+        expect(routineStore.loading).toBe(false)
+        expect(routineStore.routineForDay(today)).toContain(pushUps.id)
+        expect(routineStore.routineForDay(today)).not.toContain(squats.id)
+      })
+      const summaryAfterSwitchBack = sessionsStore.getCachedWeeklySummary(weekStart, routineStore.routine!)
+      expect(summaryAfterSwitchBack.totalAssignedWorkouts).toBe(1)
+    })
+
+    it('refuses to delete the last remaining routine, and auto-activates another when the active one is removed', async () => {
+      const { routineStore, pushUps } = await renderWithExercises()
+      await selectDay('monday')
+      await selectExerciseFromDropdown('Push-ups')
+      await waitFor(() => expect(routineStore.routineForDay('monday')).toContain(pushUps.id))
+
+      // Only one routine exists — no delete button should be offered for it
+      expect(screen.queryByRole('button', { name: /delete routine/i })).toBeNull()
+
+      // Add a second routine
+      await fireEvent.click(screen.getByRole('button', { name: /\+ new routine/i }))
+      await fireEvent.update(screen.getByLabelText(/routine name/i), '5x5')
+      await fireEvent.submit(screen.getByLabelText(/routine name/i).closest('form')!)
+      await waitFor(() => {
+        expect(routineStore.routines).toHaveLength(2)
+        expect(routineStore.activeRoutine?.name).toBe('5x5')
+        expect(routineStore.loading).toBe(false)
+      })
+
+      // Now delete affordances exist; delete the currently-active one ("5x5") specifically —
+      // both routines get a delete button, so scope the query to the "5x5" pill's own row.
+      vi.stubGlobal('confirm', () => true)
+      const fiveByFiveRow = screen.getByText('5x5').closest('div')!
+      await fireEvent.click(within(fiveByFiveRow).getByRole('button', { name: /delete routine/i }))
+
+      await waitFor(() => {
+        expect(routineStore.routines).toHaveLength(1)
+        expect(routineStore.activeRoutine?.name).toBe('My Routine')
+      })
+    })
+  })
 })
+
+/** Returns today's lowercase day-of-week name (e.g. 'monday'), matching DailyChecklist's default selected date. */
+function todayDayName(): string {
+  const names = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  return names[new Date().getDay()]!
+}
+
+/** Returns today's date as a YYYY-MM-DD string. */
+function todayDateString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

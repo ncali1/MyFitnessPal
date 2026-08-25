@@ -7,10 +7,10 @@
       type="button"
       @click="selectPreset(preset)"
       :class="[
-        'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+        'px-3 py-2 rounded-xl text-sm font-semibold transition-colors',
         activePreset === preset.label
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
+          ? 'bg-accent-500 text-white'
+          : 'bg-canvas-800 border border-surface-border text-ink-muted hover:border-ink-faint/50',
       ]"
     >
       {{ preset.label }}
@@ -22,14 +22,14 @@
         type="date"
         :value="modelValue.start"
         @change="onStartChange"
-        class="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-2.5 py-2 text-sm rounded-xl bg-canvas-800 border border-surface-border text-ink focus:outline-none focus:ring-2 focus:ring-accent-500"
       />
-      <span class="text-gray-500 dark:text-gray-400 text-sm">to</span>
+      <span class="text-ink-faint text-sm">to</span>
       <input
         type="date"
         :value="modelValue.end"
         @change="onEndChange"
-        class="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-2.5 py-2 text-sm rounded-xl bg-canvas-800 border border-surface-border text-ink focus:outline-none focus:ring-2 focus:ring-accent-500"
       />
     </template>
   </div>

@@ -3,9 +3,12 @@ import { ref, computed, watch } from 'vue'
 import type { WorkoutSession, ExercisePerformance } from './types'
 import { storageService } from '../services/storage'
 import { useComputedCache } from '../composables/useComputedCache'
-import { calculateWeeklySummary, aggregateProgressData } from '../utils/calculations'
+import { calculateWeeklySummary, aggregateProgressData, getExerciseHistory } from '../utils/calculations'
+import type { ExerciseHistoryEntry } from '../utils/calculations'
 import type { WeeklySummary, ProgressData } from '../models/types'
 import type { Routine } from './types'
+import { useAuthStore } from './auth'
+import { syncUpsertSession } from '../services/cloudSync'
 
 /**
  * Pinia store for workout sessions and performance logging.
@@ -19,6 +22,7 @@ import type { Routine } from './types'
  * Cached getters:
  * - `getCachedWeeklySummary`  — memoised weekly summary calculation
  * - `getCachedProgressData`   — memoised progress data aggregation
+ * - `getCachedExerciseHistory` — memoised chronological history for one exercise
  *
  * Actions: `createSession`, `updateSession`, `logPerformance`, `loadSessions`
  * Getters: `allSessions`, `sessionByDate`, `performanceByExercise`
@@ -32,13 +36,15 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
   // ── Caches ────────────────────────────────────────────────────────────────
   const weeklySummaryCache = useComputedCache<WeeklySummary>()
   const progressDataCache = useComputedCache<ProgressData>()
+  const historyCache = useComputedCache<ExerciseHistoryEntry[]>()
 
-  /** Invalidate both caches whenever sessions change. */
+  /** Invalidate all caches whenever sessions change. */
   watch(
     sessions,
     () => {
       weeklySummaryCache.invalidate()
       progressDataCache.invalidate()
+      historyCache.invalidate()
     },
     { deep: true }
   )
@@ -76,6 +82,20 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
     }
     const result = aggregateProgressData(exerciseId, exerciseName, startStr, endStr, sessions.value, routine)
     progressDataCache.set(key, result)
+    return result
+  }
+
+  /**
+   * Returns every logged instance of an exercise across all sessions, newest first.
+   * Result is cached; cache is invalidated when sessions change.
+   */
+  function getCachedExerciseHistory(exerciseId: string): ExerciseHistoryEntry[] {
+    const key = exerciseId
+    if (historyCache.has(key)) {
+      return historyCache.get(key)!
+    }
+    const result = getExerciseHistory(exerciseId, sessions.value)
+    historyCache.set(key, result)
     return result
   }
 
@@ -131,6 +151,9 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
       currentSession.value = session
       await storageService.saveWorkoutSession(session)
 
+      const auth = useAuthStore()
+      if (auth.user) syncUpsertSession(auth.user.id, session)
+
       return session
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to create session'
@@ -174,6 +197,9 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
         currentSession.value = updated
       }
       await storageService.saveWorkoutSession(updated)
+
+      const auth = useAuthStore()
+      if (auth.user) syncUpsertSession(auth.user.id, updated)
 
       return updated
     } catch (err) {
@@ -221,6 +247,9 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
 
       session.updatedAt = Date.now()
       await storageService.saveWorkoutSession(session)
+
+      const auth = useAuthStore()
+      if (auth.user) syncUpsertSession(auth.user.id, session)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to log performance'
       throw err
@@ -262,10 +291,12 @@ export const useWorkoutSessionsStore = defineStore('workoutSessions', () => {
     loadSessions,
     getCachedWeeklySummary,
     getCachedProgressData,
+    getCachedExerciseHistory,
     /** Manually invalidate all caches (call when routine changes) */
     invalidateCache: () => {
       weeklySummaryCache.invalidate()
       progressDataCache.invalidate()
+      historyCache.invalidate()
     },
   }
 })

@@ -1,52 +1,51 @@
 <template>
-  <div class="space-y-3">
-    <div v-if="items.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+  <div class="space-y-2.5">
+    <div v-if="items.length === 0" class="text-center py-10 text-ink-muted text-sm">
       No exercises assigned for this day.
     </div>
 
     <div
       v-for="item in items"
       :key="item.exerciseId"
-      class="flex items-start gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+      class="flex items-start gap-3 p-4 card"
     >
       <!-- Checkbox -->
-      <input
+      <button
         :id="`exercise-${item.exerciseId}`"
-        type="checkbox"
-        :checked="item.completed"
-        @change="onToggle(item.exerciseId, !item.completed)"
-        class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-      />
+        type="button"
+        role="checkbox"
+        :aria-checked="item.completed"
+        @click="onToggle(item.exerciseId, !item.completed)"
+        :class="[
+          'mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+          item.completed ? 'bg-lime-500 border-lime-500' : 'border-surface-border hover:border-ink-faint',
+        ]"
+      >
+        <svg v-if="item.completed" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#0a0b0f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 8"/></svg>
+      </button>
 
       <!-- Exercise info -->
-      <label :for="`exercise-${item.exerciseId}`" class="flex-1 cursor-pointer">
-        <div class="flex items-center justify-between">
-          <span
-            :class="[
-              'font-medium text-gray-900 dark:text-white',
-              item.completed ? 'line-through text-gray-400 dark:text-gray-500' : '',
-            ]"
-          >
+      <label :for="`exercise-${item.exerciseId}`" class="flex-1 cursor-pointer" @click="onToggle(item.exerciseId, !item.completed)">
+        <div class="flex items-center justify-between gap-2">
+          <span :class="['font-semibold text-sm', item.completed ? 'line-through text-ink-faint' : 'text-ink']">
             {{ item.exerciseName }}
           </span>
-          <span
-            v-if="item.completed"
-            class="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full"
-          >
-            Done
-          </span>
+          <span v-if="item.completed" class="badge-lime flex-shrink-0">Done</span>
         </div>
-        <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+        <div class="text-xs text-ink-muted mt-1">
           {{ item.targetSets }} sets × {{ item.targetReps }} reps
-          <span v-if="item.targetMuscleGroups.length > 0" class="ml-2">
+          <span v-if="item.targetMuscleGroups.length > 0" class="ml-1">
             · {{ item.targetMuscleGroups.join(', ') }}
           </span>
         </div>
         <!-- Logged performance summary -->
-        <div v-if="item.completed && item.performance" class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-          Logged: {{ item.performance.actualSets }} sets × {{ item.performance.actualReps }} reps
-          <span v-if="item.performance.weight"> @ {{ item.performance.weight }}kg</span>
-          · {{ item.performance.difficultyLevel }}
+        <div v-if="item.completed && item.performance" class="text-xs text-accent-400 mt-1.5 font-medium flex items-center gap-1.5 flex-wrap">
+          <span>
+            {{ item.performance.actualSets }} sets × {{ item.performance.actualReps }} reps
+            <span v-if="item.performance.weight != null"> @ {{ formatWeight(item.performance.weight, settingsStore.weightUnit) }}{{ settingsStore.weightUnit }}</span>
+            · {{ item.performance.difficultyLevel }}
+          </span>
+          <span v-if="item.isWeightPR || item.isRepsPR" class="badge-lime !py-0.5">🏆 PR</span>
         </div>
       </label>
     </div>
@@ -57,13 +56,15 @@
 /**
  * @component ChecklistItems
  * @description Renders a list of ChecklistItem rows, each showing the exercise name,
- * targets, completion state, and logged performance summary. Emits a `toggle` event
- * when the user clicks a checkbox.
+ * targets, completion state, and logged performance summary (weight shown in the
+ * user's preferred unit). Emits a `toggle` event when the user clicks a checkbox.
  *
  * @prop {ChecklistItem[]} items - The checklist items to display
  * @emits toggle - `(exerciseId: string, completed: boolean)` — fired when a checkbox changes
  */
 import type { ExercisePerformance } from '../stores/types'
+import { useSettingsStore } from '../stores/settings'
+import { formatWeight } from '../utils/units'
 
 export interface ChecklistItem {
   exerciseId: string
@@ -73,6 +74,10 @@ export interface ChecklistItem {
   targetMuscleGroups: string[]
   completed: boolean
   performance?: ExercisePerformance
+  /** True when this logged performance currently holds the exercise's all-time max weight. */
+  isWeightPR?: boolean
+  /** True when this logged performance currently holds the exercise's all-time max reps. */
+  isRepsPR?: boolean
 }
 
 interface Props {
@@ -80,6 +85,8 @@ interface Props {
 }
 
 defineProps<Props>()
+
+const settingsStore = useSettingsStore()
 
 const emit = defineEmits<{
   toggle: [exerciseId: string, completed: boolean]

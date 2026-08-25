@@ -1,8 +1,20 @@
 import { db } from './database'
-import type { Exercise, Routine, WorkoutSession } from '../stores/types'
+import type { Exercise, Routine, WorkoutSession, BodyWeightLog } from '../stores/types'
 
 const MAX_RETRIES = 3
 const RETRY_DELAYS = [100, 500, 1000]
+
+/**
+ * Deep-clones a value into a plain, structured-clone-safe object via a JSON
+ * round-trip. This strips Vue reactivity Proxies (which some IndexedDB
+ * implementations refuse to structured-clone with a DataCloneError) from any
+ * object before it's written to IndexedDB. Safe here because Exercise,
+ * Routine, and WorkoutSession are plain data (strings, numbers, arrays,
+ * nested plain objects) with no functions, Dates, or circular references.
+ */
+function toPlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value))
+}
 
 /**
  * Thrown when IndexedDB storage quota is exceeded.
@@ -80,7 +92,7 @@ export const storageService = {
    */
   async saveExercise(exercise: Exercise): Promise<void> {
     return retryOperation(
-      () => db.exercises.put(exercise),
+      () => db.exercises.put(toPlain(exercise)),
       'Save exercise'
     ).then(() => {})
   },
@@ -114,34 +126,32 @@ export const storageService = {
 
   // Routine operations
   /**
-   * Persists the routine document to IndexedDB. Replaces any existing routine (only one is stored).
+   * Persists a routine to IndexedDB, inserting or replacing by primary key.
    * @param routine - The routine object to save
    */
   async saveRoutine(routine: Routine): Promise<void> {
     return retryOperation(
-      async () => {
-        const existing = await db.routine.toArray()
-        if (existing.length > 0 && existing[0]) {
-          const id = existing[0].id
-          await db.routine.delete(id)
-          await db.routine.add(routine)
-        } else {
-          await db.routine.add(routine)
-        }
-      },
+      () => db.routine.put(toPlain(routine)),
       'Save routine'
     ).then(() => {})
   },
 
   /**
-   * Retrieves the single routine document from IndexedDB.
-   * @returns The routine, or `undefined` if none has been saved yet
+   * Retrieves all saved routines from IndexedDB.
    */
-  async getRoutine(): Promise<Routine | undefined> {
-    return retryOperation(async () => {
-      const routines = await db.routine.toArray()
-      return routines.length > 0 ? routines[0] : undefined
-    }, 'Get routine')
+  async getAllRoutines(): Promise<Routine[]> {
+    return retryOperation(() => db.routine.toArray(), 'Get all routines')
+  },
+
+  /**
+   * Deletes a routine from IndexedDB by its ID.
+   * @param id - ID of the routine to delete
+   */
+  async deleteRoutine(id: string): Promise<void> {
+    return retryOperation(
+      () => db.routine.delete(id),
+      'Delete routine'
+    ).then(() => {})
   },
 
   // Workout Session operations
@@ -151,7 +161,7 @@ export const storageService = {
    */
   async saveWorkoutSession(session: WorkoutSession): Promise<void> {
     return retryOperation(
-      () => db.workoutSessions.put(session),
+      () => db.workoutSessions.put(toPlain(session)),
       'Save workout session'
     ).then(() => {})
   },
@@ -195,10 +205,46 @@ export const storageService = {
     ).then(() => {})
   },
 
+  // ── Body weight log operations ──────────────────────────────────────────────
+
+  /**
+   * Persists a body weight log entry to IndexedDB. Logging again on the same date
+   * overwrites that date's entry rather than creating a duplicate.
+   * @param log - Body weight log entry to save
+   */
+  async saveBodyWeightLog(log: BodyWeightLog): Promise<void> {
+    return retryOperation(
+      async () => {
+        const existing = await db.bodyWeightLogs.where('date').equals(log.date).first()
+        const plain = toPlain(existing ? { ...log, id: existing.id } : log)
+        await db.bodyWeightLogs.put(plain)
+      },
+      'Save body weight log'
+    ).then(() => {})
+  },
+
+  /**
+   * Returns all body weight log entries stored in IndexedDB.
+   */
+  async getAllBodyWeightLogs(): Promise<BodyWeightLog[]> {
+    return retryOperation(() => db.bodyWeightLogs.toArray(), 'Get all body weight logs')
+  },
+
+  /**
+   * Deletes a body weight log entry from IndexedDB by its ID.
+   * @param id - ID of the log entry to delete
+   */
+  async deleteBodyWeightLog(id: string): Promise<void> {
+    return retryOperation(
+      () => db.bodyWeightLogs.delete(id),
+      'Delete body weight log'
+    ).then(() => {})
+  },
+
   // Bulk operations
   /**
-   * Deletes all exercises, routines, and workout sessions from IndexedDB.
-   * Intended for use in tests or when the user requests a full data reset.
+   * Deletes all exercises, routines, workout sessions, and body weight logs from
+   * IndexedDB. Intended for use in tests or when the user requests a full data reset.
    */
   async clearAllData(): Promise<void> {
     return retryOperation(
@@ -206,6 +252,7 @@ export const storageService = {
         await db.exercises.clear()
         await db.routine.clear()
         await db.workoutSessions.clear()
+        await db.bodyWeightLogs.clear()
       },
       'Clear all data'
     ).then(() => {})

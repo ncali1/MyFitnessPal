@@ -23,9 +23,13 @@ export interface RoutineAssignment {
   [day: string]: string[]
 }
 
-/** The weekly routine document stored in IndexedDB. */
+/** A saved weekly routine/program document stored in IndexedDB. */
 export interface Routine {
   id: string
+  /** User-facing name, e.g. "Push/Pull/Legs" or "5x5". */
+  name: string
+  /** Whether this is the currently active routine driving the daily checklist. */
+  isActive: boolean
   weeklyAssignments: RoutineAssignment
   /** Unix milliseconds */
   createdAt: number
@@ -52,6 +56,19 @@ export interface WorkoutSession {
   /** YYYY-MM-DD format */
   date: string
   exercises: ExercisePerformance[]
+  /** Unix milliseconds */
+  createdAt: number
+  /** Unix milliseconds */
+  updatedAt: number
+}
+
+/** A single day's logged body weight, separate from workout performance data. */
+export interface BodyWeightLog {
+  id: string
+  /** YYYY-MM-DD format; logging again on the same date overwrites this entry. */
+  date: string
+  /** Canonical weight in kg; display-unit conversion happens only at render time. */
+  weightKg: number
   /** Unix milliseconds */
   createdAt: number
   /** Unix milliseconds */

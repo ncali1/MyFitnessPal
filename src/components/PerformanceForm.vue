@@ -1,54 +1,49 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+  <div class="modal-overlay" @click.self="$emit('cancel')">
+    <div class="modal-panel">
       <div class="p-6">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-1">
-          Log Performance
-        </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+        <h2 class="text-ink text-lg mb-1">Log Performance</h2>
+        <p class="text-sm text-ink-muted mb-5">
           {{ exerciseName }}
-          <span class="ml-1 text-gray-400">(target: {{ targetSets }}×{{ targetReps }})</span>
+          <span class="ml-1 text-ink-faint">(target: {{ targetSets }}×{{ targetReps }})</span>
         </p>
 
         <form @submit.prevent="submitForm" class="space-y-4">
-          <!-- Actual Sets -->
-          <div>
-            <label for="actualSets" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Actual Sets *
-            </label>
-            <input
-              id="actualSets"
-              v-model.number="form.actualSets"
-              type="number"
-              min="1"
-              placeholder="e.g., 3"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @blur="validateField('actualSets')"
-            />
-            <p v-if="errors.actualSets" class="text-red-500 text-sm mt-1">{{ errors.actualSets }}</p>
-          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="actualSets" class="field-label">Actual Sets *</label>
+              <input
+                id="actualSets"
+                v-model.number="form.actualSets"
+                type="number"
+                min="1"
+                placeholder="3"
+                class="field-input"
+                @blur="validateField('actualSets')"
+              />
+              <p v-if="errors.actualSets" class="field-error">{{ errors.actualSets }}</p>
+            </div>
 
-          <!-- Actual Reps -->
-          <div>
-            <label for="actualReps" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Actual Reps *
-            </label>
-            <input
-              id="actualReps"
-              v-model.number="form.actualReps"
-              type="number"
-              min="1"
-              placeholder="e.g., 10"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @blur="validateField('actualReps')"
-            />
-            <p v-if="errors.actualReps" class="text-red-500 text-sm mt-1">{{ errors.actualReps }}</p>
+            <div>
+              <label for="actualReps" class="field-label">Actual Reps *</label>
+              <input
+                id="actualReps"
+                v-model.number="form.actualReps"
+                type="number"
+                min="1"
+                placeholder="10"
+                class="field-input"
+                @blur="validateField('actualReps')"
+              />
+              <p v-if="errors.actualReps" class="field-error">{{ errors.actualReps }}</p>
+            </div>
           </div>
 
           <!-- Weight (optional) -->
           <div>
-            <label for="weight" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Weight (kg) <span class="text-gray-400 font-normal">optional</span>
+            <label for="weight" class="field-label">
+              Weight ({{ settingsStore.weightUnit }})
+              <span class="text-ink-faint normal-case font-normal">optional</span>
             </label>
             <input
               id="weight"
@@ -56,55 +51,40 @@
               type="number"
               min="0"
               step="0.5"
-              placeholder="e.g., 60"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              :placeholder="settingsStore.weightUnit === 'kg' ? 'e.g., 60' : 'e.g., 135'"
+              class="field-input"
               @blur="validateField('weight')"
             />
-            <p v-if="errors.weight" class="text-red-500 text-sm mt-1">{{ errors.weight }}</p>
+            <p v-if="errors.weight" class="field-error">{{ errors.weight }}</p>
           </div>
 
           <!-- Difficulty Level -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Difficulty Level *
-            </label>
-            <div class="flex gap-3">
+            <label class="field-label">Difficulty Level *</label>
+            <div class="flex gap-2">
               <label
                 v-for="level in difficultyLevels"
                 :key="level.value"
                 :class="[
-                  'flex-1 flex items-center justify-center px-3 py-2 rounded-lg border cursor-pointer transition-colors',
+                  'flex-1 flex items-center justify-center px-3 py-2.5 rounded-xl border cursor-pointer transition-colors text-sm font-semibold',
                   form.difficultyLevel === level.value
                     ? level.activeClass
-                    : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                    : 'border-surface-border text-ink-muted hover:border-ink-faint/50',
                 ]"
               >
-                <input
-                  type="radio"
-                  :value="level.value"
-                  v-model="form.difficultyLevel"
-                  class="sr-only"
-                />
+                <input type="radio" :value="level.value" v-model="form.difficultyLevel" class="sr-only" />
                 {{ level.label }}
               </label>
             </div>
-            <p v-if="errors.difficultyLevel" class="text-red-500 text-sm mt-1">{{ errors.difficultyLevel }}</p>
+            <p v-if="errors.difficultyLevel" class="field-error">{{ errors.difficultyLevel }}</p>
           </div>
 
           <!-- Actions -->
           <div class="flex gap-3 pt-2">
-            <button
-              type="button"
-              @click="$emit('cancel')"
-              class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
+            <button type="button" @click="$emit('cancel')" class="btn-secondary flex-1">
               Cancel
             </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-            >
+            <button type="submit" :disabled="isSubmitting" class="btn-primary flex-1">
               {{ isSubmitting ? 'Saving...' : 'Save' }}
             </button>
           </div>
@@ -131,6 +111,8 @@
  */
 import { ref, reactive, watch } from 'vue'
 import type { ExercisePerformance } from '../stores/types'
+import { useSettingsStore } from '../stores/settings'
+import { fromKg, toKg } from '../utils/units'
 
 interface Props {
   exerciseId: string
@@ -155,12 +137,13 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+const settingsStore = useSettingsStore()
 const isSubmitting = ref(false)
 
 const difficultyLevels = [
-  { value: 'easy', label: 'Easy', activeClass: 'bg-green-100 border-green-500 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  { value: 'moderate', label: 'Moderate', activeClass: 'bg-yellow-100 border-yellow-500 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
-  { value: 'hard', label: 'Hard', activeClass: 'bg-red-100 border-red-500 text-red-700 dark:bg-red-900 dark:text-red-300' },
+  { value: 'easy', label: 'Easy', activeClass: 'bg-lime-500/15 border-lime-500 text-lime-500' },
+  { value: 'moderate', label: 'Moderate', activeClass: 'bg-amber-500/15 border-amber-500 text-amber-400' },
+  { value: 'hard', label: 'Hard', activeClass: 'bg-red-500/15 border-red-500 text-red-400' },
 ] as const
 
 const form = reactive<FormData>({
@@ -172,14 +155,14 @@ const form = reactive<FormData>({
 
 const errors = reactive<Partial<Record<keyof FormData, string>>>({})
 
-// Pre-fill when editing
+// Pre-fill when editing — stored weight is always kg; display it in the user's chosen unit.
 watch(
   () => props.existingPerformance,
   (perf) => {
     if (perf) {
       form.actualSets = perf.actualSets ?? null
       form.actualReps = perf.actualReps ?? null
-      form.weight = perf.weight ?? null
+      form.weight = fromKg(perf.weight, settingsStore.weightUnit)
       form.difficultyLevel = perf.difficultyLevel ?? null
     }
   },
@@ -237,7 +220,7 @@ async function submitForm() {
       completed: true,
       actualSets: form.actualSets!,
       actualReps: form.actualReps!,
-      weight: form.weight ?? undefined,
+      weight: toKg(form.weight, settingsStore.weightUnit) ?? undefined,
       difficultyLevel: form.difficultyLevel!,
     })
   } finally {

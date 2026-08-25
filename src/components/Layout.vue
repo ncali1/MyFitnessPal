@@ -1,17 +1,20 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <MainMenu />
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  <div class="min-h-screen bg-canvas flex flex-col">
+    <TopBar />
+    <main class="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 sm:pb-10">
       <slot />
     </main>
+    <BottomNav />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * @component Layout
- * @description Root page layout wrapper. Renders the MainMenu navigation bar at the top
- * and provides a centred, max-width content area for the default slot.
+ * @description Root page layout wrapper. Renders the TopBar (brand + desktop nav) and,
+ * on small screens, a fixed BottomNav tab bar. Provides a centred, max-width content
+ * area for the default slot with bottom padding to clear the mobile tab bar.
  */
-import MainMenu from './MainMenu.vue'
+import TopBar from './TopBar.vue'
+import BottomNav from './BottomNav.vue'
 </script>

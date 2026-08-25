@@ -3,7 +3,7 @@
  *
  * Validates Requirement 8.2:
  * THE Fitness_Tracker SHALL provide a responsive user interface suitable
- * for desktop and tablet viewing.
+ * for mobile, tablet, and desktop viewing.
  *
  * Strategy: Because the test environment uses happy-dom (no real CSS engine),
  * Tailwind responsive prefixes (sm:, md:, lg:) are verified structurally by
@@ -11,6 +11,10 @@
  * Viewport-simulation tests additionally set window.innerWidth / innerHeight
  * and dispatch resize events to confirm that any JavaScript-driven responsive
  * logic reacts correctly.
+ *
+ * Navigation is split across two components: TopBar (brand + sm+ pill tab row)
+ * and BottomNav (fixed mobile tab bar, hidden at sm+). Both read/write the same
+ * UI store so they always stay in sync.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -25,7 +29,8 @@ vi.mock('../services/storage', () => ({
     getAllExercises: vi.fn(async () => []),
     deleteExercise: vi.fn(async () => {}),
     saveRoutine: vi.fn(async () => {}),
-    getRoutine: vi.fn(async () => undefined),
+    getAllRoutines: vi.fn(async () => []),
+    deleteRoutine: vi.fn(async () => {}),
     saveWorkoutSession: vi.fn(async () => {}),
     getWorkoutSession: vi.fn(async () => undefined),
     getWorkoutSessionByDate: vi.fn(async () => undefined),
@@ -84,76 +89,91 @@ describe('Responsive Design – Requirement 8.2', () => {
     })
 
     it('has responsive horizontal padding (sm: and lg: variants)', () => {
-      const wrapper = mount(Layout, { global: { stubs: { MainMenu: true } } })
+      const wrapper = mount(Layout, { global: { stubs: { TopBar: true, BottomNav: true } } })
       const html = wrapper.html()
-      // The main content area uses sm:px-6 lg:px-8 for responsive padding
       expect(hasResponsiveClass(html, 'sm:px-6', 'lg:px-8')).toBe(true)
     })
 
     it('uses max-width container to prevent excessive line length on desktop', () => {
-      const wrapper = mount(Layout, { global: { stubs: { MainMenu: true } } })
-      expect(wrapper.html()).toContain('max-w-7xl')
+      const wrapper = mount(Layout, { global: { stubs: { TopBar: true, BottomNav: true } } })
+      expect(wrapper.html()).toContain('max-w-5xl')
     })
 
     it('occupies full minimum viewport height', () => {
-      const wrapper = mount(Layout, { global: { stubs: { MainMenu: true } } })
+      const wrapper = mount(Layout, { global: { stubs: { TopBar: true, BottomNav: true } } })
       expect(wrapper.html()).toContain('min-h-screen')
     })
   })
 
-  // ── MainMenu component ──────────────────────────────────────────────────────
+  // ── TopBar component ────────────────────────────────────────────────────────
 
-  describe('MainMenu component', () => {
-    let MainMenu: any
+  describe('TopBar component', () => {
+    let TopBar: any
 
     beforeEach(async () => {
-      MainMenu = (await import('./MainMenu.vue')).default
+      TopBar = (await import('./TopBar.vue')).default
     })
 
     it('desktop navigation is hidden on small viewports and visible on sm: and above', () => {
-      const wrapper = mount(MainMenu)
+      const wrapper = mount(TopBar)
       const html = wrapper.html()
-      // Desktop nav uses "hidden sm:flex"
       expect(hasResponsiveClass(html, 'sm:flex')).toBe(true)
       expect(html).toContain('hidden')
     })
 
-    it('mobile hamburger button is visible below sm: breakpoint', () => {
-      const wrapper = mount(MainMenu)
-      const html = wrapper.html()
-      // Mobile button uses "sm:hidden"
-      expect(hasResponsiveClass(html, 'sm:hidden')).toBe(true)
-    })
-
     it('renders all 5 navigation tabs', () => {
-      const wrapper = mount(MainMenu)
+      const wrapper = mount(TopBar)
       const html = wrapper.html()
-      const tabLabels = ['Exercises', 'Routine', 'Daily Checklist', 'Weekly Summary', 'Progress']
+      const tabLabels = ['Exercises', 'Routine', 'Today', 'Summary', 'Progress']
       tabLabels.forEach((label) => {
         expect(html).toContain(label)
       })
     })
 
-    it('mobile dropdown appears when hamburger is clicked', async () => {
-      const wrapper = mount(MainMenu)
-      const hamburger = wrapper.find('button[aria-label="Toggle navigation menu"]')
-      expect(hamburger.exists()).toBe(true)
-
-      // Before click – mobile dropdown should not be in the DOM
-      expect(wrapper.find('.sm\\:hidden.border-t').exists()).toBe(false)
-
-      await hamburger.trigger('click')
-
-      // After click – dropdown is rendered
-      const dropdown = wrapper.find('[class*="sm:hidden"][class*="border-t"]')
-      expect(dropdown.exists()).toBe(true)
-    })
-
     it('uses responsive max-width container for nav bar', () => {
-      const wrapper = mount(MainMenu)
+      const wrapper = mount(TopBar)
       const html = wrapper.html()
       expect(hasResponsiveClass(html, 'sm:px-6', 'lg:px-8')).toBe(true)
-      expect(html).toContain('max-w-7xl')
+      expect(html).toContain('max-w-5xl')
+    })
+  })
+
+  // ── BottomNav component ─────────────────────────────────────────────────────
+
+  describe('BottomNav component', () => {
+    let BottomNav: any
+
+    beforeEach(async () => {
+      BottomNav = (await import('./BottomNav.vue')).default
+    })
+
+    it('is hidden at sm: and above (mobile-only tab bar)', () => {
+      const wrapper = mount(BottomNav)
+      expect(hasResponsiveClass(wrapper.html(), 'sm:hidden')).toBe(true)
+    })
+
+    it('renders all 5 navigation tabs', () => {
+      const wrapper = mount(BottomNav)
+      const html = wrapper.html()
+      const tabLabels = ['Exercises', 'Routine', 'Today', 'Summary', 'Progress']
+      tabLabels.forEach((label) => {
+        expect(html).toContain(label)
+      })
+    })
+
+    it('is fixed to the bottom of the viewport', () => {
+      const wrapper = mount(BottomNav)
+      expect(wrapper.html()).toContain('fixed')
+      expect(wrapper.html()).toContain('bottom-0')
+    })
+
+    it('clicking a tab updates the active tab in the UI store', async () => {
+      const { useUIStore } = await import('../stores/ui')
+      const wrapper = mount(BottomNav)
+      const store = useUIStore()
+      const buttons = wrapper.findAll('button')
+      await buttons[1]!.trigger('click')
+      expect(store.activeTab).toBe('routine')
     })
   })
 
@@ -264,17 +284,17 @@ describe('Responsive Design – Requirement 8.2', () => {
   // ── No horizontal overflow ──────────────────────────────────────────────────
 
   describe('No horizontal overflow on desktop', () => {
-    it('Layout uses max-w-7xl to prevent content wider than the container', () => {
-      // max-w-7xl = 80rem = 1280px, well within 1920px desktop width
+    it('Layout uses max-w-5xl to prevent content wider than the container', () => {
+      // max-w-5xl = 64rem = 1024px, well within 1920px desktop width
       // This prevents horizontal scrolling on wide displays
-      const maxWidthRem = 80  // 7xl = 80rem
+      const maxWidthRem = 64 // 5xl = 64rem
       const desktopWidthRem = DESKTOP_W / 16
       expect(desktopWidthRem).toBeGreaterThan(maxWidthRem)
     })
 
     it('Layout uses mx-auto to center content without causing overflow', async () => {
       const Layout = (await import('./Layout.vue')).default
-      const wrapper = mount(Layout, { global: { stubs: { MainMenu: true } } })
+      const wrapper = mount(Layout, { global: { stubs: { TopBar: true, BottomNav: true } } })
       expect(wrapper.html()).toContain('mx-auto')
     })
   })
@@ -303,9 +323,9 @@ describe('Responsive Design – Requirement 8.2', () => {
       expect(hasResponsiveClass(html, 'md:grid-cols-2')).toBe(true)
     })
 
-    it('Navigation shows full horizontal tab bar at sm: breakpoint (≥640px)', async () => {
-      const MainMenu = (await import('./MainMenu.vue')).default
-      const wrapper = mount(MainMenu)
+    it('Top navigation shows full horizontal tab bar at sm: breakpoint (≥640px)', async () => {
+      const TopBar = (await import('./TopBar.vue')).default
+      const wrapper = mount(TopBar)
       // The desktop nav container uses "hidden sm:flex"
       expect(wrapper.html()).toContain('sm:flex')
     })

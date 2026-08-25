@@ -2,41 +2,34 @@
   <div class="flex flex-col gap-3">
     <!-- Date display -->
     <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-        {{ formattedSelectedDate }}
-      </h2>
-      <button
-        v-if="!isToday"
-        @click="selectToday"
-        class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-      >
-        Go to Today
+      <h2 class="text-ink text-lg">{{ formattedSelectedDate }}</h2>
+      <button v-if="!isToday" @click="selectToday" class="text-sm text-accent-400 font-semibold hover:text-accent-400/80">
+        Today
       </button>
     </div>
 
     <!-- Day navigation buttons -->
-    <div class="flex gap-2 overflow-x-auto pb-1">
+    <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
       <button
         v-for="day in recentDays"
         :key="day.dateString"
         @click="selectDate(day.dateString)"
         :class="[
-          'flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-lg border transition-colors',
+          'flex-shrink-0 flex flex-col items-center px-3.5 py-2.5 rounded-xl border transition-colors',
           day.dateString === selectedDate
-            ? 'bg-blue-600 border-blue-600 text-white'
-            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+            ? 'bg-accent-500 border-accent-500 text-white shadow-[0_4px_16px_-4px_rgba(255,90,43,0.6)]'
+            : 'bg-surface border-surface-border text-ink-muted hover:border-ink-faint/50',
         ]"
       >
-        <span class="text-xs font-medium">{{ day.dayLabel }}</span>
-        <span class="text-lg font-bold">{{ day.dayNumber }}</span>
-        <span class="text-xs">{{ day.monthLabel }}</span>
+        <span class="text-[10px] font-semibold uppercase tracking-wide opacity-80">{{ day.dayLabel }}</span>
+        <span class="text-lg font-bold leading-tight">{{ day.dayNumber }}</span>
       </button>
     </div>
 
     <!-- Custom date picker -->
     <div class="flex items-center gap-2">
-      <label for="date-picker" class="text-sm text-gray-600 dark:text-gray-400">
-        Select date:
+      <label for="date-picker" class="text-xs text-ink-muted">
+        Or pick a date:
       </label>
       <input
         id="date-picker"
@@ -44,7 +37,7 @@
         :value="selectedDate"
         :max="todayString"
         @change="onDateInputChange"
-        class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-2.5 py-1.5 text-sm rounded-lg bg-canvas-800 border border-surface-border text-ink focus:outline-none focus:ring-2 focus:ring-accent-500"
       />
     </div>
   </div>

@@ -1,17 +1,20 @@
 <template>
-  <div class="space-y-4">
-    <div class="flex justify-between items-center">
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Exercises</h2>
-      <button
-        @click="showForm = true"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
+  <div class="space-y-5">
+    <div class="section-header">
+      <div>
+        <h2 class="text-ink">Exercises</h2>
+        <p class="text-ink-muted text-sm mt-0.5">{{ exercises.length }} in your library</p>
+      </div>
+      <button @click="showForm = true" class="btn-primary">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         Add Exercise
       </button>
     </div>
 
-    <div v-if="exercises.length === 0" class="text-center py-8">
-      <p class="text-gray-500 dark:text-gray-400">No exercises yet. Create one to get started!</p>
+    <div v-if="exercises.length === 0" class="card-pad text-center py-14">
+      <div class="text-4xl mb-3">🏋️</div>
+      <p class="text-ink font-semibold">No exercises yet</p>
+      <p class="text-ink-muted text-sm mt-1">Create one to start building your routine.</p>
     </div>
 
     <!-- Normal grid for < 1000 exercises -->
@@ -19,7 +22,7 @@
       <div
         v-for="exercise in exercises"
         :key="exercise.id"
-        class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+        class="card-pad hover:border-ink-faint/40 transition-colors"
       >
         <ExerciseCard
           :exercise="exercise"
@@ -30,12 +33,12 @@
     </div>
 
     <!-- Virtual scroll for 1000+ exercises — renders only visible rows -->
-    <div v-else class="rounded-lg border border-gray-200 dark:border-gray-700" style="height: 600px">
+    <div v-else class="card overflow-hidden" style="height: 600px">
       <VirtualList :items="exercises" :item-height="CARD_HEIGHT">
         <template #default="{ item: exercise }">
           <div
             :key="exercise.id"
-            class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+            class="border-b border-surface-border p-4 hover:bg-surface-hover transition-colors"
             :style="{ height: `${CARD_HEIGHT}px`, boxSizing: 'border-box' }"
           >
             <ExerciseCard
@@ -94,20 +97,22 @@ const ExerciseCard = defineComponent({
     return () =>
       h('div', { class: 'flex flex-col h-full' }, [
         h('div', { class: 'flex justify-between items-start mb-2' }, [
-          h('h3', { class: 'text-base font-semibold text-gray-900 dark:text-white truncate' }, props.exercise.name),
+          h('h3', { class: 'text-base font-semibold text-ink truncate' }, props.exercise.name),
         ]),
-        h('div', { class: 'flex gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3 flex-wrap' }, [
-          h('span', null, [`Sets: ${props.exercise.targetSets}`]),
-          h('span', null, [`Reps: ${props.exercise.targetReps}`]),
-          h('span', { class: 'truncate' }, [`Muscles: ${props.exercise.targetMuscleGroups.join(', ')}`]),
+        h('div', { class: 'flex gap-3 text-xs text-ink-muted mb-4 flex-wrap' }, [
+          h('span', { class: 'badge-muted' }, [`Sets: ${props.exercise.targetSets}`]),
+          h('span', { class: 'badge-muted' }, [`Reps: ${props.exercise.targetReps}`]),
+        ]),
+        h('div', { class: 'text-xs text-ink-faint truncate mb-4' }, [
+          props.exercise.targetMuscleGroups.join(' · '),
         ]),
         h('div', { class: 'flex gap-2 mt-auto' }, [
           h('button', {
-            class: 'flex-1 px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm',
+            class: 'btn-secondary flex-1 !px-3 !py-1.5 text-xs',
             onClick: () => emit('edit', props.exercise),
           }, 'Edit'),
           h('button', {
-            class: 'flex-1 px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm',
+            class: 'btn-danger flex-1 !px-3 !py-1.5 text-xs',
             onClick: () => emit('delete', props.exercise.id),
           }, 'Delete'),
         ]),

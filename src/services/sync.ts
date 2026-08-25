@@ -1,6 +1,6 @@
 import { watch, type Ref } from 'vue'
 import { storageService } from './storage'
-import type { Exercise, Routine, WorkoutSession } from '../stores/types'
+import type { Exercise, Routine, WorkoutSession, BodyWeightLog } from '../stores/types'
 
 const DEBOUNCE_DELAY = 1000 // 1 second debounce
 
@@ -88,22 +88,22 @@ export function syncExercises(
 }
 
 /**
- * Sets up a deep watcher on the routine ref and debounces writes to storage.
- * No-ops if the routine becomes null (i.e. before any routine is created).
+ * Sets up a deep watcher on the routines array and debounces writes to storage.
+ * Each routine is saved individually via `storageService.saveRoutine`.
  *
- * @param routineRef - Reactive ref holding the current routine (or null)
+ * @param routinesRef - Reactive ref holding the routines array from the Pinia store
  * @param options - Optional debounce delay and error callback
  * @returns A stop function that removes the watcher when called
  */
-export function syncRoutine(
-  routineRef: Ref<Routine | null>,
+export function syncRoutines(
+  routinesRef: Ref<Routine[]>,
   options: SyncOptions = {}
 ) {
   const { debounceDelay = DEBOUNCE_DELAY, onError } = options
 
   const debouncedSync = createDebouncedSync(
-    async (routine: Routine | null) => {
-      if (routine) {
+    async (routines: Routine[]) => {
+      for (const routine of routines) {
         await storageService.saveRoutine(routine)
       }
     },
@@ -111,10 +111,10 @@ export function syncRoutine(
   )
 
   return watch(
-    routineRef,
-    async (newRoutine) => {
+    routinesRef,
+    async (newRoutines) => {
       try {
-        await debouncedSync(newRoutine)
+        await debouncedSync(newRoutines)
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err))
         onError?.(error)
@@ -163,27 +163,69 @@ export function syncWorkoutSessions(
 }
 
 /**
- * Starts all three synchronization watchers (exercises, routine, sessions) at once.
+ * Sets up a deep watcher on the body weight logs array and debounces writes to storage.
+ * Each entry is saved individually via `storageService.saveBodyWeightLog`.
+ *
+ * @param logsRef - Reactive ref holding the body weight logs array from the Pinia store
+ * @param options - Optional debounce delay and error callback
+ * @returns A stop function that removes the watcher when called
+ */
+export function syncBodyWeightLogs(
+  logsRef: Ref<BodyWeightLog[]>,
+  options: SyncOptions = {}
+) {
+  const { debounceDelay = DEBOUNCE_DELAY, onError } = options
+
+  const debouncedSync = createDebouncedSync(
+    async (logs: BodyWeightLog[]) => {
+      for (const log of logs) {
+        await storageService.saveBodyWeightLog(log)
+      }
+    },
+    debounceDelay
+  )
+
+  return watch(
+    logsRef,
+    async (newLogs) => {
+      try {
+        await debouncedSync(newLogs)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        onError?.(error)
+      }
+    },
+    { deep: true }
+  )
+}
+
+/**
+ * Starts all four synchronization watchers (exercises, routine, sessions, body weight
+ * logs) at once.
  *
  * @param exercisesRef - Reactive ref for the exercises array
- * @param routineRef - Reactive ref for the current routine
+ * @param routinesRef - Reactive ref for the routines array
  * @param sessionsRef - Reactive ref for the sessions array
+ * @param bodyWeightLogsRef - Reactive ref for the body weight logs array
  * @param options - Optional shared debounce delay and error callback
- * @returns A single stop function that tears down all three watchers
+ * @returns A single stop function that tears down all four watchers
  */
 export function initializeSync(
   exercisesRef: Ref<Exercise[]>,
-  routineRef: Ref<Routine | null>,
+  routinesRef: Ref<Routine[]>,
   sessionsRef: Ref<WorkoutSession[]>,
+  bodyWeightLogsRef: Ref<BodyWeightLog[]>,
   options: SyncOptions = {}
 ) {
   const stopExercisesSync = syncExercises(exercisesRef, options)
-  const stopRoutineSync = syncRoutine(routineRef, options)
+  const stopRoutineSync = syncRoutines(routinesRef, options)
   const stopSessionsSync = syncWorkoutSessions(sessionsRef, options)
+  const stopBodyWeightLogsSync = syncBodyWeightLogs(bodyWeightLogsRef, options)
 
   return () => {
     stopExercisesSync()
     stopRoutineSync()
     stopSessionsSync()
+    stopBodyWeightLogsSync()
   }
 }

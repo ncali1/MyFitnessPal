@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import type { Exercise } from './types'
 import { storageService } from '../services/storage'
 import { ExerciseModel } from '../models/Exercise'
+import { useAuthStore } from './auth'
+import { syncUpsertExercise, syncDeleteExercise } from '../services/cloudSync'
 
 /**
  * Pinia store for managing the exercise library.
@@ -66,6 +68,11 @@ export const useExercisesStore = defineStore('exercises', () => {
       exercises.value.push(exercise)
       await storageService.saveExercise(exercise)
 
+      // Fire-and-forget cloud push — never blocks the UI; queued locally on failure
+      // and retried automatically (see services/cloudSync.ts).
+      const auth = useAuthStore()
+      if (auth.user) syncUpsertExercise(auth.user.id, exercise)
+
       return exercise
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to create exercise'
@@ -122,6 +129,9 @@ export const useExercisesStore = defineStore('exercises', () => {
       exercises.value[index] = updated
       await storageService.saveExercise(updated)
 
+      const auth = useAuthStore()
+      if (auth.user) syncUpsertExercise(auth.user.id, updated)
+
       return updated
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to update exercise'
@@ -142,6 +152,9 @@ export const useExercisesStore = defineStore('exercises', () => {
 
       exercises.value = exercises.value.filter((ex) => ex.id !== id)
       await storageService.deleteExercise(id)
+
+      const auth = useAuthStore()
+      if (auth.user) syncDeleteExercise(auth.user.id, id)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete exercise'
       throw err
